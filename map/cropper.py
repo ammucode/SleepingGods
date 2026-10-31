@@ -114,8 +114,8 @@ def make_glowy(img,dmin=0.5,dmax=4):
     distance = cv2.distanceTransform(bw, cv2.DIST_L2, 5)
 
     alpha = np.interp(distance, [dmin,dmax], [255,150], left=255, right=0)
-    color = np.interp(distance, [dmin, (dmin+dmax)/2], [0,10])
-    weight = np.interp(distance, [dmin, (dmin+dmax)/2, dmax], [0.5, 0.2, 0.0])
+    color = np.interp(distance, [dmin, (dmin+dmax)/2], [0,210])
+    weight = np.interp(distance, [dmin, (dmin+dmax)/2, dmax], [0.5, 0.4, 0.2])
     full_mask = distance<dmax
 
     img_new = np.stack((color,color,color,alpha), axis=2)
@@ -162,17 +162,47 @@ fullmap_coords = np.zeros((4,3,2,2))  # per chunk, corners
 fullmap_coords[0,0] = np.array([(0,3301),(1769,3291)])
 fullmap_coords[0,1] = np.array([(50,3330),(1800,6550)])
 fullmap_coords[0,2] = np.array([(0,6609),(1765,9900)])
-fullmap_coords[1,0] = np.array([(1765,100),(3513,3350)])
-fullmap_coords[1,1] = np.array([(1765,3307),(3513,6550)])
+fullmap_coords[1,0] = np.array([(1765,80),(3513,3440)])
+fullmap_coords[1,1] = np.array([(1765,3270),(3513,6540)])
 fullmap_coords[1,2] = np.array([(1765,6609),(3513,9900)])
-fullmap_coords[2,0] = np.array([(3513,0),(5200,3307)])
-fullmap_coords[2,1] = np.array([(3513,3307),(5200,6609)])
-fullmap_coords[2,2] = np.array([(3513,6609),(5200,9900)])
-fullmap_coords[3,0] = np.array([(5200,0),(7028,3307)])
-fullmap_coords[3,1] = np.array([(5200,3307),(7028,6609)])
-fullmap_coords[3,2] = np.array([(5200,6609),(7028,9900)])
+fullmap_coords[2,0] = np.array([(3513,30),(5180,3250)])
+fullmap_coords[2,1] = np.array([(3520,3250),(5250,6580)])
+fullmap_coords[2,2] = np.array([(3500,6550),(5300,9900)])
+fullmap_coords[3,0] = np.array([(5150,80),(6850,3350)])
+fullmap_coords[3,1] = np.array([(5200,3230),(7028,6650)])
+fullmap_coords[3,2] = np.array([(5200,6570),(6980,9900)])
 # print("fullmap coords\n", fullmap_coords)
 # print(f"From: {fullmap_img.shape}")
+
+basemap_img = cv2.imread("src/basemap.jpg")
+basemap_img = cv2.cvtColor(basemap_img, cv2.COLOR_BGR2BGRA)
+basemap_region_rows = np.array([0,1765,3513,5200,7028])
+basemap_region_cols = np.array([0,3307,6609,9900])
+# basemap_coords = np.dstack(np.meshgrid(basemap_region_rows, basemap_region_cols, indexing='ij'))
+basemap_coords = np.zeros((4,3,2,2))  # per chunk, corners
+basemap_coords[0,0] = np.array([(0,0),(280,510)])
+basemap_coords[0,1] = np.array([(5,480),(280,980)])
+basemap_coords[0,2] = np.array([(0,985),(280,1500)])
+basemap_coords[1,0] = np.array([(268,0),(540,505)])
+basemap_coords[1,1] = np.array([(272,475),(540,990)])
+basemap_coords[1,2] = np.array([(268,985),(540,1500)])
+basemap_coords[2,0] = np.array([(535,0),(795,495)])
+basemap_coords[2,1] = np.array([(540,475),(810,990)])
+basemap_coords[2,2] = np.array([(547,975),(815,1500)])
+basemap_coords[3,0] = np.array([(790,15),(1055,515)])
+basemap_coords[3,1] = np.array([(810,475),(1085,1000)])
+basemap_coords[3,2] = np.array([(805,985),(1080,1500)])
+# print("basemap coords\n", basemap_coords)
+# print(f"From: {basemap_img.shape}")
+
+# colormap_img = fullmap_img
+# colormap_region_rows = fullmap_region_rows
+# colormap_region_cols = fullmap_region_cols
+# colormap_coords = fullmap_coords
+colormap_img = basemap_img
+colormap_region_rows = basemap_region_rows
+colormap_region_cols = basemap_region_cols
+colormap_coords = basemap_coords
 
 # Step 1 & 2: Crop with arbitrary corners & resize to 400x500
 target = np.zeros(pagemap_img.shape, dtype=np.uint8)
@@ -183,19 +213,19 @@ for chunk_r, chunk_c in ((r,c) for r in range(5) for c in range(3)):
     # print(f"\n\n[{chunk_r}, {chunk_c}]:\n", np.dstack(np.meshgrid(dest_r, dest_c, indexing='ij')))
     target_width = dest_c[1]-dest_c[0]
     target_height = dest_r[1]-dest_r[0]
-    if chunk_r < len(fullmap_coords) and chunk_c < len(fullmap_coords[chunk_r]):
-        # corners = fullmap_coords[chunk_r:chunk_r+2,chunk_c:chunk_c+2]
-        # print(f"fullmap_coords[{chunk_r},{chunk_c}] = np.array([({corners[0,0][0]},{corners[0,0][1]}),({corners[1,1][0]},{corners[1,1][1]})])")
+    if chunk_r < len(colormap_coords) and chunk_c < len(colormap_coords[chunk_r]):
+        # corners = colormap_coords[chunk_r:chunk_r+2,chunk_c:chunk_c+2]
+        # print(f"colormap_coords[{chunk_r},{chunk_c}] = np.array([({corners[0,0][0]},{corners[0,0][1]}),({corners[1,1][0]},{corners[1,1][1]})])")
         # corners = np.copy(corners)
 
-        bounds = fullmap_coords[chunk_r,chunk_c]
+        bounds = colormap_coords[chunk_r,chunk_c]
         corners = np.stack(np.meshgrid(bounds[:, 0], bounds[:, 1], indexing='ij'), axis=-1)
 
-        # print(f"fullmap_coords[{chunk_r},{chunk_c}]: {corners.shape}\n", corners)
+        # print(f"colormap_coords[{chunk_r},{chunk_c}]: {corners.shape}\n", corners)
         corners = [corners[0,0,::-1],corners[0,1,::-1],corners[1,1,::-1],corners[1,0,::-1]]
 
         chunk = crop_arbitrary_quad(
-            fullmap_img,
+            colormap_img,
             corners,
             target_width,
             target_height
@@ -206,7 +236,7 @@ for chunk_r, chunk_c in ((r,c) for r in range(5) for c in range(3)):
         blank=True
 
     chunk = cv2.cvtColor(chunk, cv2.COLOR_BGR2BGRA)
-    # cv2.imwrite(f"debug/pages/full_chunk_{chunk_r}_{chunk_c}.png", chunk)
+    # cv2.imwrite(f"debug/pages/color_chunk_{chunk_r}_{chunk_c}.png", chunk)
 
     if (chunk_r,chunk_c) in blanks or blank:
         chunk[:,:,:] = 0
@@ -233,8 +263,15 @@ overlay = np.stack([overlay[:,:,0],overlay[:,:,1],overlay[:,:,2],np.ones(overlay
 print(overlay.shape)
 cv2.imwrite("debug/overlay.png", overlay)
 
-final = ((pagemap_img[:,:,:3] * (1 - target_alpha)) + (overlay[:, :, :3] * target_alpha)).astype(np.uint8)
+bright = 0
+final = ((pagemap_img[:,:,:3] * (1 - target_alpha)) + ((overlay[:, :, :3]+bright) * target_alpha)).astype(np.uint8)
 final = np.stack([final[:,:,0],final[:,:,1],final[:,:,2],np.ones(final[:,:,0].shape)*255],axis=2)
 print(final.shape)
 cv2.imwrite("debug/final.png", final)
 cv2.imwrite("map.png", final)
+
+
+# # 4. Blend the images
+# foo = final[:,:,:3]+20
+# cv2.imwrite("foo.png", foo)
+
